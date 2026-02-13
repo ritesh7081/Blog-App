@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef } from "react";
+import React, { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Input, RTE, Select } from "..";
 import appwriteService from "../../appwrite/config";
@@ -20,64 +20,88 @@ export default function PostForm({ post }) {
   const userData = useSelector((state) => state.auth.userData);
 
   const [preview, setPreview] = useState(
-    post ? appwriteService.getFilePreview(post.featuredImage) : null,
+    post ? appwriteService.getFilePreview(post.featuredImage) : null
   );
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const fileInputRef = useRef(null);
-
-  // --------------------
-  // Submit Handler
-  // --------------------
+  // ----------------------------------
+  // SUBMIT FUNCTION (FIXED)
+  // ----------------------------------
   const submit = async (data) => {
     setLoading(true);
 
     try {
-      if (post) {
-        const file = data.image?.[0]
-          ? await appwriteService.uploadFile(data.image[0])
-          : null;
+      // 🚨 Must be logged in
+      if (!userData || !userData.$id) {
+        alert("You must be logged in to publish a post.");
+        setLoading(false);
+        return;
+      }
 
-        if (file) {
-          await appwriteService.deleteFile(post.featuredImage);
+      let fileId = post?.featuredImage || null;
+
+      // Upload new image if selected
+      if (selectedFile) {
+        const uploadedFile = await appwriteService.uploadFile(selectedFile);
+
+        if (!uploadedFile) {
+          alert("Image upload failed.");
+          setLoading(false);
+          return;
         }
 
+        fileId = uploadedFile.$id;
+
+        // Delete old image if editing
+        if (post?.featuredImage) {
+          await appwriteService.deleteFile(post.featuredImage);
+        }
+      }
+
+      // Require image for new post
+      if (!post && !fileId) {
+        alert("Please upload an image.");
+        setLoading(false);
+        return;
+      }
+
+      // UPDATE
+      if (post) {
         const dbPost = await appwriteService.updatePost(post.$id, {
           ...data,
-          featuredImage: file ? file.$id : undefined,
+          featuredImage: fileId,
         });
 
         if (dbPost) navigate(`/post/${dbPost.$id}`);
-      } else {
-        const file = await appwriteService.uploadFile(data.image[0]);
-
-        if (file) {
-          const dbPost = await appwriteService.createPost({
-            ...data,
-            featuredImage: file.$id,
-            userId: userData.$id,
-          });
-
-          if (dbPost) navigate(`/post/${dbPost.$id}`);
-        }
       }
-    } catch (err) {
-      console.error(err);
+      // CREATE
+      else {
+        const dbPost = await appwriteService.createPost({
+          ...data,
+          featuredImage: fileId,
+          userId: userData.$id,
+        });
+
+        if (dbPost) navigate(`/post/${dbPost.$id}`);
+      }
+    } catch (error) {
+      console.error("Submit Error:", error);
     }
 
     setLoading(false);
   };
 
-  // --------------------
-  // Slug Generator
-  // --------------------
+  // ----------------------------------
+  // SLUG AUTO GENERATOR
+  // ----------------------------------
   const slugTransform = useCallback((value) => {
     if (value && typeof value === "string")
       return value
         .trim()
         .toLowerCase()
         .replace(/[^a-zA-Z\d\s]+/g, "-")
-        .replace(/\s/g, "-");
+        .replace(/\s+/g, "-");
     return "";
   }, []);
 
@@ -92,15 +116,17 @@ export default function PostForm({ post }) {
     return () => subscription.unsubscribe();
   }, [watch, slugTransform, setValue]);
 
-  // --------------------
-  // Image Preview
-  // --------------------
+  // ----------------------------------
+  // IMAGE PREVIEW
+  // ----------------------------------
   const handleImagePreview = (file) => {
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result);
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => setPreview(reader.result);
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -110,8 +136,10 @@ export default function PostForm({ post }) {
         className="bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-8"
       >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+
           {/* LEFT SIDE */}
           <div className="lg:col-span-2 space-y-6">
+
             <Input
               label="Title"
               placeholder="Enter post title"
@@ -123,9 +151,11 @@ export default function PostForm({ post }) {
               placeholder="Auto-generated slug"
               {...register("slug", { required: true })}
               onInput={(e) =>
-                setValue("slug", slugTransform(e.currentTarget.value), {
-                  shouldValidate: true,
-                })
+                setValue(
+                  "slug",
+                  slugTransform(e.currentTarget.value),
+                  { shouldValidate: true }
+                )
               }
             />
 
@@ -139,31 +169,33 @@ export default function PostForm({ post }) {
 
           {/* RIGHT SIDE */}
           <div className="space-y-6">
+
             {/* Upload Box */}
-            <div
-              onClick={() => document.getElementById("file-upload").click()}
+            <label
+              className="
+                block border-2 border-dashed border-gray-300 dark:border-gray-600
+                rounded-xl p-6 text-center cursor-pointer
+                hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800
+                transition-all duration-300
+              "
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
                 const file = e.dataTransfer.files[0];
-                setValue("image", e.dataTransfer.files);
                 handleImagePreview(file);
               }}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-60 rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 transition-all duration-300"
             >
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Drag & drop image here or click to upload
               </p>
 
               <input
-                id="file-upload"
                 type="file"
                 accept="image/*"
                 className="hidden"
-                {...register("image", { required: !post })}
                 onChange={(e) => handleImagePreview(e.target.files[0])}
               />
-            </div>
+            </label>
 
             {/* Preview */}
             {preview && (
@@ -182,10 +214,14 @@ export default function PostForm({ post }) {
               {...register("status", { required: true })}
             />
 
-            {/* Submit */}
-            <Button type="submit" loading={loading} className="w-full">
-              {post ? "Update Post" : "Publish Post"}
+            <Button type="submit" className="w-full">
+              {loading
+                ? "Processing..."
+                : post
+                ? "Update Post"
+                : "Publish Post"}
             </Button>
+
           </div>
         </div>
       </form>

@@ -13,9 +13,8 @@ export default function Post() {
   const navigate = useNavigate();
   const userData = useSelector((state) => state.auth.userData);
 
-  const isAuthor = post && userData
-    ? post.userId === userData.$id
-    : false;
+  const isAuthor =
+    post && userData ? post.userId === userData.$id : false;
 
   useEffect(() => {
     if (slug) {
@@ -35,39 +34,45 @@ export default function Post() {
     if (!confirmDelete) return;
 
     const status = await appwriteService.deletePost(post.$id);
+
     if (status) {
       await appwriteService.deleteFile(post.featuredImage);
       navigate("/");
     }
   };
 
+  // ---------------- LOADING SCREEN ----------------
   if (loading) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
+  // ---------------- MAIN POST PAGE ----------------
   return post ? (
-    <div className="min-h-[80vh] bg-gray-50 dark:bg-gray-950 pb-16">
+    <div className="min-h-screen bg-linear-to-b from-gray-900 to-gray-950 pb-24">
 
-      {/* HERO IMAGE */}
-      <div className="relative w-full h-100 overflow-hidden">
+      {/* HERO SECTION */}
+      <div className="relative w-full h-112.5 overflow-hidden">
         <img
           src={appwriteService.getFilePreview(post.featuredImage)}
           alt={post.title}
           className="w-full h-full object-cover"
         />
 
-        <div className="absolute inset-0 bg-black/40"></div>
+        {/* Dark Gradient Overlay */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/50 to-transparent"></div>
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center px-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white max-w-3xl">
+        {/* Title */}
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 text-center px-6">
+          <h1 className="text-4xl sm:text-5xl font-bold text-white max-w-4xl leading-tight">
             {post.title}
           </h1>
         </div>
 
+        {/* Author Buttons */}
         {isAuthor && (
           <div className="absolute top-6 right-6 flex gap-3">
             <Link to={`/edit-post/${post.$id}`}>
@@ -85,12 +90,38 @@ export default function Post() {
         )}
       </div>
 
-      {/* CONTENT */}
+      {/* ARTICLE CONTENT */}
       <Container>
-        <div className="max-w-3xl mx-auto mt-12 prose prose-lg dark:prose-invert">
-          {parse(post.content)}
+        <div className="max-w-4xl mx-auto mt-2 mb-2">
+
+          <article
+            className="
+              prose prose-lg max-w-none
+              prose-headings:font-bold
+              prose-h2:text-3xl
+              prose-h3:text-2xl
+              prose-p:text-gray-300
+              prose-a:text-blue-400
+              prose-a:underline
+              prose-a:underline-offset-4
+              prose-img:rounded-xl
+              prose-img:shadow-xl
+              prose-strong:text-white
+              prose-blockquote:border-l-blue-500
+              prose-code:text-blue-400
+              prose-code:bg-gray-800
+              prose-code:px-1
+              prose-code:py-0.5
+              prose-code:rounded
+              dark:prose-invert
+            "
+          >
+            {parse(post.content)}
+          </article>
+
         </div>
       </Container>
+
     </div>
   ) : null;
 }
