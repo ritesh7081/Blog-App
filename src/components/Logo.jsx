@@ -1,8 +1,28 @@
 import React from 'react'
 
-function Logo({width = '100px'}) {
+function Logo({ width = '100px' }) {
   return (
-    <div>Logo</div>
+    <svg
+  width="40"
+  height="40"
+  viewBox="0 0 40 40"
+  xmlns="http://www.w3.org/2000/svg"
+  className="h-10 w-10"
+>
+  <rect width="40" height="40" rx="10" fill="#111827" />
+
+  <path
+    d="M8 26 
+       C10 14, 14 14, 16 24
+       C18 32, 22 16, 24 24
+       C26 32, 30 14, 32 18"
+    stroke="#EC4899"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    fill="none"
+  />
+</svg>
   )
 }
 
